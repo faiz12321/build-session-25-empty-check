@@ -1,3 +1,7 @@
+import contextlib
+import io
+from pathlib import Path
+from unittest import mock
 """Tests for emptycheck.py."""
 import os
 import shutil
@@ -205,6 +209,60 @@ class SafetyTests(unittest.TestCase):
         for banned in ("shutil", "os.remove", "os.rmdir", "os.rename",
                        "os.makedirs", "open("):
             self.assertNotIn(banned, source)
+
+
+class PathSafety(unittest.TestCase):
+    def setUp(self):
+        self.tmp=tempfile.TemporaryDirectory();self.addCleanup(self.tmp.cleanup)
+        self.base=Path(self.tmp.name);self.root=self.base/'tree';self.root.mkdir()
+        self.file=self.root/'zero';self.file.write_bytes(b'')
+    def link(self,path,target,directory=False):
+        try:path.symlink_to(target,target_is_directory=directory)
+        except OSError:self.skipTest('Symlinks unavailable')
+    def code(self,path):
+        with contextlib.redirect_stdout(io.StringIO()),contextlib.redirect_stderr(io.StringIO()):
+            return emptycheck.main(['p',str(path)])
+    def test_root_alias_refuses(self):
+        p=self.base/'alias';self.link(p,self.root,True);self.assertEqual(self.code(p),2)
+    def test_ancestor_alias_refuses(self):
+        p=self.base/'alias';self.link(p,self.base,True);self.assertEqual(self.code(p/'tree'),2)
+    def test_tree_file_alias_refuses(self):
+        self.link(self.root/'alias',self.file);self.assertEqual(self.code(self.root),2)
+    def test_tree_directory_alias_refuses(self):
+        self.link(self.root/'alias',self.root,True);self.assertEqual(self.code(self.root),2)
+    def test_tree_dangling_refuses(self):
+        self.link(self.root/'alias',self.root/'missing');self.assertEqual(self.code(self.root),2)
+    def test_tree_self_loop_refuses(self):
+        p=self.root/'alias';self.link(p,p);self.assertEqual(self.code(self.root),2)
+    def test_hardlink_refuses(self):
+        os.link(self.file,self.root/'hard');self.assertEqual(self.code(self.root),2)
+    def test_pipe_refuses(self):
+        if not hasattr(os,'mkfifo'):self.skipTest('Unix pipe unavailable')
+        os.mkfifo(self.root/'pipe');self.assertEqual(self.code(self.root),2)
+    def test_traversal_refuses(self):self.assertEqual(self.code(self.root/'..'/'tree'),2)
+    def test_metadata_error_refuses(self):
+        with mock.patch.object(Path,'lstat',side_effect=OSError('forced')):self.assertEqual(self.code(self.root),2)
+    def test_reparse_attribute_refuses(self):
+        real=Path.lstat
+        def fake(p,*a,**kw):
+            value=real(p,*a,**kw)
+            if p==self.file:return type('Reparse',(),{'st_mode':value.st_mode,'st_file_attributes':0x400})()
+            return value
+        with mock.patch.object(Path,'lstat',fake):self.assertEqual(self.code(self.root),2)
+    def test_walk_error_refuses(self):
+        def walk(root,onerror=None,**kw):
+            onerror(PermissionError('forced'));return iter([])
+        with mock.patch.object(emptycheck.os,'walk',walk):self.assertEqual(self.code(self.root),2)
+    def test_setup_alias_parent_refuses(self):
+        import make_sample
+        p=self.base/'alias';self.link(p,self.root,True)
+        with mock.patch.object(make_sample,'SAMPLE',str(p/'new')):
+            with self.assertRaises(OSError):make_sample.main()
+        self.assertFalse((self.root/'new').exists())
+    def test_setup_traversal_refuses(self):
+        import make_sample
+        with mock.patch.object(make_sample,'SAMPLE',str(self.root/'..'/'new')):
+            with self.assertRaises(OSError):make_sample.main()
 
 
 if __name__ == "__main__":
