@@ -1,0 +1,69 @@
+### CMD: python --version
+Python 3.12.3
+### EXIT: 0
+
+### CMD: python make_sample.py
+Created a new sample folder beside make_sample.py.
+It holds 5 files (2 of them empty) and 3 folders that hold no files.
+### EXIT: 0
+
+### CMD: python make_sample.py
+Stopped: sample already exists. Nothing was replaced or deleted.
+### EXIT: 1
+
+### CMD: python emptycheck.py sample
+Empty check
+Folder: sample
+
+Files with nothing inside: 2
+  drafts/ideas.txt
+  todo.txt
+
+Folders that hold no files: 3
+  backups
+  backups/old
+  exports
+### EXIT: 0
+
+### CMD: python emptycheck.py sample/drafts
+Empty check
+Folder: sample/drafts
+
+Files with nothing inside: 1
+  ideas.txt
+
+Folders that hold no files: 0
+### EXIT: 0
+
+### CMD: python emptycheck.py missing-folder
+No such folder: missing-folder
+### EXIT: 2
+
+### CMD: python -m unittest -v
+test_file_instead_of_folder_is_a_clear_error (test_emptycheck.CliTests.test_file_instead_of_folder_is_a_clear_error) ... ok
+test_help_prints_usage (test_emptycheck.CliTests.test_help_prints_usage) ... ok
+test_missing_folder_is_a_clear_error (test_emptycheck.CliTests.test_missing_folder_is_a_clear_error) ... ok
+test_no_arguments_prints_usage (test_emptycheck.CliTests.test_no_arguments_prints_usage) ... ok
+test_report_lists_empty_file_and_folder (test_emptycheck.CliTests.test_report_lists_empty_file_and_folder) ... ok
+test_report_shows_folder_as_given (test_emptycheck.CliTests.test_report_shows_folder_as_given) ... ok
+test_tool_does_not_change_the_tree (test_emptycheck.CliTests.test_tool_does_not_change_the_tree) ... ok
+test_deep_file_keeps_parents_off_the_list (test_emptycheck.FindEmptyTests.test_deep_file_keeps_parents_off_the_list) ... ok
+test_empty_file_is_listed (test_emptycheck.FindEmptyTests.test_empty_file_is_listed) ... ok
+test_empty_folder_is_listed (test_emptycheck.FindEmptyTests.test_empty_folder_is_listed) ... ok
+test_file_with_text_is_not_listed (test_emptycheck.FindEmptyTests.test_file_with_text_is_not_listed) ... ok
+test_folder_of_empty_folders_is_listed_with_child (test_emptycheck.FindEmptyTests.test_folder_of_empty_folders_is_listed_with_child) ... ok
+test_folder_with_a_file_is_not_listed (test_emptycheck.FindEmptyTests.test_folder_with_a_file_is_not_listed) ... ok
+test_nested_empty_file_uses_forward_slashes (test_emptycheck.FindEmptyTests.test_nested_empty_file_uses_forward_slashes) ... ok
+test_results_are_sorted (test_emptycheck.FindEmptyTests.test_results_are_sorted) ... ok
+test_root_with_files_is_not_listed_as_empty (test_emptycheck.FindEmptyTests.test_root_with_files_is_not_listed_as_empty) ... ok
+test_source_has_no_write_calls (test_emptycheck.SafetyTests.test_source_has_no_write_calls) ... ok
+test_rerun_preserves_generated_folder_and_user_file (test_emptycheck.SampleTests.test_rerun_preserves_generated_folder_and_user_file) ... ok
+test_sample_folder_matches_the_lesson_counts (test_emptycheck.SampleTests.test_sample_folder_matches_the_lesson_counts) ... ok
+test_setup_refuses_existing_file (test_emptycheck.SampleTests.test_setup_refuses_existing_file) ... ok
+test_setup_refuses_existing_folder_without_change (test_emptycheck.SampleTests.test_setup_refuses_existing_folder_without_change) ... ok
+
+----------------------------------------------------------------------
+Ran 21 tests in 0.148s
+
+OK
+### EXIT: 0
