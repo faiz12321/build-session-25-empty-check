@@ -12,6 +12,30 @@ Usage:
 """
 import os
 import sys
+import stat
+from pathlib import Path
+
+
+def safe_input(value, directory=False):
+    path = Path(value).absolute()
+    if '..' in path.parts:
+        raise OSError('Parent-traversal paths are unsupported.')
+    for part in [*reversed(path.parents), path]:
+        info = part.lstat()
+        if stat.S_ISLNK(info.st_mode) or getattr(info, 'st_file_attributes', 0) & 0x400:
+            raise OSError('Links/reparse points are unsupported.')
+    info = path.lstat()
+    if directory:
+        if not stat.S_ISDIR(info.st_mode):
+            raise NotADirectoryError('Expected an ordinary directory.')
+    elif not stat.S_ISREG(info.st_mode) or info.st_nlink != 1:
+        raise OSError('Expected an ordinary singly linked file.')
+    return path
+
+
+
+
+
 
 
 def display_path(path, root):
@@ -24,25 +48,34 @@ def find_empty(root):
 
     empty_files: display paths of files that hold 0 bytes.
     empty_folders: display paths of folders that hold no files anywhere
-    inside them. Unreadable entries are skipped.
+    inside them. Unsafe aliases and unreadable entries refuse with an error.
     """
+    safe_input(root, directory=True)
+    def fail(error):
+        raise error
+    # Refuse aliases/errors before totals, rather than label unvisited data empty.
+    for here, dirs, names in os.walk(root, onerror=fail):
+        for name in dirs:
+            safe_input(os.path.join(here, name), directory=True)
+        for name in names:
+            safe_input(os.path.join(here, name))
     empty_files = []
     empty_folders = []
-    for dirpath, dirnames, filenames in os.walk(root):
+    for dirpath, dirnames, filenames in os.walk(root, onerror=fail):
         for name in filenames:
             full = os.path.join(dirpath, name)
             try:
                 if os.path.getsize(full) == 0:
                     empty_files.append(display_path(full, root))
             except OSError:
-                continue
+                raise
         if dirpath != root and not filenames:
             try:
                 has_files_inside = any(
-                    files for _, _, files in os.walk(dirpath)
+                    files for _, _, files in os.walk(dirpath, onerror=fail)
                 )
             except OSError:
-                continue
+                raise
             if not has_files_inside:
                 empty_folders.append(display_path(dirpath, root))
     return sorted(empty_files), sorted(empty_folders)
@@ -53,10 +86,19 @@ def main(argv):
         print("Usage: python emptycheck.py FOLDER", file=sys.stderr)
         return 2
     root = argv[1]
+    try:
+        safe_input(root, directory=True)
+    except OSError as error:
+        print("No such folder: " + root + " (" + str(error) + ")", file=sys.stderr)
+        return 2
     if not os.path.isdir(root):
         print("No such folder: " + root, file=sys.stderr)
         return 2
-    empty_files, empty_folders = find_empty(root)
+    try:
+        empty_files, empty_folders = find_empty(root)
+    except OSError as error:
+        print("Could not complete empty check: " + str(error), file=sys.stderr)
+        return 2
     print("Empty check")
     print("Folder: " + root)
     print()
